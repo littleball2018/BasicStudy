@@ -3,77 +3,87 @@ package com.littleball.socket;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.LinkedList;
+import java.net.SocketException;
+import java.util.ArrayList;
 import java.util.List;
 
-public class ChatServer{
+public class ChatServer {
+    public static List<Socket> sockets = new ArrayList<Socket>();
+
     public static void main(String[] args) {
         try {
             ServerSocket ss = new ServerSocket(8888);
-            String shareStr = "";
 
-            DoAllChatThread allChat = new DoAllChatThread();
+
 //            List<Socket> list = new LinkedList<Socket>();
 //            Socket s = ss.accept();
 //            while(s!=null){
 //                new Thread(new NewChatThread(s)).start();
 //                s = ss.accept();
 //            }
+
             while (true) {
                 Socket s = ss.accept();
-                allChat.add(s);
+                sockets.add(s);
                 new Thread(new NewChatThread(s)).start();
 
             }
 
         } catch (IOException ioe) {
+            ioe.printStackTrace();
             //System.out.println("Server Error: " + ioe.getMessage());
         }
     }
+
+
 }
 
 class NewChatThread implements Runnable {
     private Socket socket;
-    private int flag;
-    private String shareStr="";
+
 
     NewChatThread(Socket socket) {
         this.socket = socket;
-        this.flag = 0;
+
     }
 
     @Override
     public void run() {
-        while (true) {
-            try {
-                BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                flag = 1;
-                String str = br.readLine();
-                shareStr = str;
-                System.out.println(str);
+        try {
+            BufferedReader br = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            String str = null;
+            PrintWriter pw = null;
+            while (socket.isConnected()&&(str = br.readLine()) != null) {
+                if (str.equalsIgnoreCase("byebye")) {
+                    ChatServer.sockets.remove(socket);
+                }
+                System.out.println("Server: " + str);
+                for (Socket s : ChatServer.sockets) {
+
+                    pw = new PrintWriter(s.getOutputStream(), true);
+                    pw.println(str);
+
+                }
+                if (str.equalsIgnoreCase("byebye")) {
+                    br.close();
+                    pw.close();
+                    socket.close();
+                }
+
+
 //                PrintWriter pw = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())));
 //                pw.println("send from server:" + str);
 //                pw.flush();
-                flag = 0;
 
-            } catch (IOException ioe) {
-                //System.out.println("ReceiveMessage Error: "+ioe.getMessage());
+
             }
+        } catch (SocketException se){
+            System.out.println("it's gone.");//se.printStackTrace();
+        } catch (IOException ioe) {
+            ioe.printStackTrace();
+            //System.out.println("ReceiveMessage Error: "+ioe.getMessage());
         }
     }
 }
 
-class DoAllChatThread implements Runnable {
-    private List<Socket> socketList = new LinkedList<Socket>();
 
-
-
-    public void add(Socket socket) {
-        socketList.add(socket);
-    }
-
-    @Override
-    public void run() {
-
-    }
-}
